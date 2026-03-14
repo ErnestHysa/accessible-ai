@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_publishable_key: str = ""
+    stripe_webhook_endpoint: str = ""
 
     # Prices
     stripe_price_id_free: str = ""
@@ -62,8 +63,10 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "noreply@accessibleai.com"
+    resend_api_key: str = ""
 
     # Scanning
+    playwright_browser_path: str = ""
     scan_timeout_seconds: int = 60
     max_pages_per_scan: int = 100
     scan_concurrency: int = 5

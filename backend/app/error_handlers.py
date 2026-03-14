@@ -212,6 +212,46 @@ async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError) -
     )
 
 
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Handle request validation errors."""
+    logger.warning(f"Validation error: {exc.errors()}")
+
+    errors = [
+        {
+            "field": ".".join(str(loc) for loc in error["loc"]),
+            "message": error["msg"],
+            "type": error["type"],
+        }
+        for error in exc.errors()
+    ]
+
+    error_response = ErrorResponse(
+        message="Request validation failed",
+        code=ErrorCode.VALIDATION_ERROR,
+        details={"errors": errors},
+    )
+
+    return JSONResponse(
+        status_code=422,
+        content=error_response.to_dict(),
+    )
+
+
+def register_error_handlers(app):
+    """Register all error handlers with the FastAPI application.
+
+    Args:
+        app: The FastAPI application instance
+    """
+    from fastapi.exceptions import RequestValidationError
+
+    app.add_exception_handler(AccessibleAIException, accessible_ai_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+    app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+    app.add_exception_handler(Exception, general_exception_handler)
+
+
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     """Middleware for consistent error handling and logging."""
 

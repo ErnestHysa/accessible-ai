@@ -15,19 +15,22 @@ from app.error_handlers import register_error_handlers
 
 settings = get_settings()
 
-# Initialize Sentry if DSN is provided
-if settings.sentry_dsn:
+# Initialize Sentry if DSN is provided and valid
+if settings.sentry_dsn and not settings.sentry_dsn.startswith("https://xxxxxxxxx"):
     import sentry_sdk
 
-    sentry_sdk.init(
-        dsn=settings.sentry_dsn,
-        integrations=[
-            FastApiIntegration(),
-            SqlalchemyIntegration(),
-        ],
-        traces_sample_rate=0.1,
-        profiles_sample_rate=0.1,
-    )
+    try:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            integrations=[
+                FastApiIntegration(),
+                SqlalchemyIntegration(),
+            ],
+            traces_sample_rate=0.1,
+            profiles_sample_rate=0.1,
+        )
+    except Exception as e:
+        print(f"Warning: Failed to initialize Sentry: {e}")
 
 
 @asynccontextmanager
