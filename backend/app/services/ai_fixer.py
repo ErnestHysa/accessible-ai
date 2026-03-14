@@ -103,7 +103,8 @@ Don't skip from h1 to h3.""",
     "aria-required-attr": {
         "description": "Required ARIA attributes missing",
         "fix_template": """Add the required ARIA attribute: {attr_name}
-{element_code} {attr_name}="{attr_value}"",
+{element_code} {attr_name}="{attr_value}"
+""",
         "code_template": '{tag} {attr_name}="{attr_value}"',
     },
     # Table issues
@@ -139,6 +140,13 @@ async def generate_fix(issue: Issue) -> str:
         if issue.element_html:
             fix_code = customize_fix_from_html(fix_code, issue.element_html)
 
+        # Build the impact section separately to avoid nested f-strings
+        impact_section = ""
+        if issue.impact:
+            impact_section = f"## Impact\n{issue.impact}\n"
+
+        selector_text = issue.selector if issue.selector else "on the page"
+
         return f"""# Fix for {issue.type}
 
 {template['fix_template']}
@@ -146,15 +154,14 @@ async def generate_fix(issue: Issue) -> str:
 ## Issue Details
 {issue.description}
 
-{f'## Impact\n{issue.impact}' if issue.impact else ''}
-
+{impact_section}
 ## Suggested Code
 ```html
 {fix_code}
 ```
 
 ## How to Apply
-1. Locate the element: {issue.selector or 'on the page'}
+1. Locate the element: {selector_text}
 2. Replace or modify it with the suggested code above
 3. Test the change with a screen reader
 4. Re-scan to verify the fix
@@ -214,6 +221,29 @@ async def generate_ai_fix(issue: Issue) -> str:
     This is called when no template exists for the issue type.
     """
     try:
+        # Build the user prompt content
+        issue_details = [
+            f"Issue Type: {issue.type}",
+            f"Severity: {issue.severity}",
+            f"Description: {issue.description}",
+        ]
+        if issue.impact:
+            issue_details.append(f"Impact: {issue.impact}")
+        if issue.selector:
+            issue_details.append(f"Selector: {issue.selector}")
+        if issue.element_html:
+            issue_details.append(f"Element HTML: {issue.element_html}")
+
+        user_content = (
+            "Generate a fix for this accessibility issue:\n\n"
+            + "\n".join(issue_details)
+            + "\n\nProvide:\n"
+            "1. A clear explanation of the problem\n"
+            "2. Specific code to fix it\n"
+            "3. How to implement the fix\n"
+            "4. How to verify the fix works"
+        )
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
@@ -226,27 +256,16 @@ async def generate_ai_fix(issue: Issue) -> str:
                     "messages": [
                         {
                             "role": "system",
-                            "content": """You are an accessibility expert specializing in WCAG 2.1 compliance.
-Provide clear, actionable fixes for accessibility issues.
-Include code examples in HTML/CSS/JavaScript as needed.
-Be concise but thorough.""",
+                            "content": (
+                                "You are an accessibility expert specializing in WCAG 2.1 compliance. "
+                                "Provide clear, actionable fixes for accessibility issues. "
+                                "Include code examples in HTML/CSS/JavaScript as needed. "
+                                "Be concise but thorough."
+                            ),
                         },
                         {
                             "role": "user",
-                            "content": f"""Generate a fix for this accessibility issue:
-
-Issue Type: {issue.type}
-Severity: {issue.severity}
-Description: {issue.description}
-{f'Impact: {issue.impact}' if issue.impact else ''}
-{f'Selector: {issue.selector}' if issue.selector else ''}
-{f'Element HTML: {issue.element_html}' if issue.element_html else ''}
-
-Provide:
-1. A clear explanation of the problem
-2. Specific code to fix it
-3. How to implement the fix
-4. How to verify the fix works""",
+                            "content": user_content,
                         },
                     ],
                     "max_tokens": 500,
@@ -262,7 +281,6 @@ Provide:
     except Exception as e:
         # Log error and fallback to generic fix
         logger.error(f"AI fix generation failed: {e}, using generic fix")
-        # Fallback to generic fix on error
 
     return generate_generic_fix(issue)
 
