@@ -87,6 +87,10 @@ class EmailService:
             logger.error(f"Error sending email: {str(e)}")
             return {"success": False, "message": str(e)}
 
+    async def send_welcome(self, to: str, user_name: Optional[str] = None) -> Dict[str, any]:
+        """Send welcome email to new users (alias for send_welcome_email)."""
+        return await self.send_welcome_email(to, user_name)
+
     async def send_welcome_email(self, to: str, name: Optional[str] = None) -> Dict[str, any]:
         """Send welcome email to new users."""
         subject = "Welcome to AccessibleAI!"
@@ -397,6 +401,165 @@ class EmailService:
 </html>
 """
         return await self.send_email(to, subject, html_content)
+
+    async def send_scan_complete(
+        self,
+        to_email: str,
+        user_name: Optional[str] = None,
+        website_name: str = "",
+        website_url: str = "",
+        score: int = 0,
+        total_issues: int = 0,
+        scan_id: str = "",
+    ) -> Dict[str, any]:
+        """Send email when scan is complete (with extended params)."""
+        scan_url = f"{settings.frontend_url}/dashboard/scans/{scan_id}"
+        subject = f"Accessibility Scan Complete: {website_name}"
+        score_color = "green" if score >= 90 else "#eab308" if score >= 70 else "#ef4444"
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height:1.6; color:#333; }}
+        .container {{ max-width:600px; margin:0 auto; padding:20px; }}
+        .score {{ text-align:center; padding:30px; background:#f0f0f0; border-radius:10px; }}
+        .score-number {{ font-size:48px; font-weight:bold; color:{score_color}; }}
+        .stats {{ display:flex; justify-content:space-around; margin:20px 0; }}
+        .stat {{ text-align:center; }}
+        .stat-number {{ font-size:24px; font-weight:bold; }}
+        .button {{ display:inline-block; padding:12px 24px; background:#667eea; color:white; text-decoration:none; border-radius:5px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Scan Complete</h1>
+        <p>Hi {user_name or 'there'},</p>
+        <p>Your accessibility scan for <strong>{website_name}</strong> ({website_url}) is complete.</p>
+
+        <div class="score">
+            <div class="score-number">{score}/100</div>
+            <p>Accessibility Score</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">{total_issues}</div>
+                <p>Issues Found</p>
+            </div>
+        </div>
+
+        <p>Log in to view detailed results and get AI-powered fix suggestions.</p>
+        <a href="{scan_url}" class="button">View Results</a>
+    </div>
+</body>
+</html>
+"""
+        return await self.send_email(to_email, subject, html_content)
+
+    async def send_weekly_report(
+        self,
+        to_email: str,
+        user_name: Optional[str] = None,
+        total_scans: int = 0,
+        avg_score: int = 0,
+        total_issues: int = 0,
+    ) -> Dict[str, any]:
+        """Send weekly summary report to user."""
+        subject = f"Weekly Accessibility Report - {total_scans} scans"
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height:1.6; color:#333; }}
+        .container {{ max-width:600px; margin:0 auto; padding:20px; }}
+        .stats {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:15px; margin:20px 0; }}
+        .stat {{ background:#f9f9f9; padding:20px; border-radius:10px; text-align:center; }}
+        .stat-number {{ font-size:32px; font-weight:bold; color:#667eea; }}
+        .button {{ display:inline-block; padding:12px 24px; background:#667eea; color:white; text-decoration:none; border-radius:5px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Weekly Accessibility Report</h1>
+        <p>Hi {user_name or 'there'},</p>
+        <p>Here's your accessibility summary for this week:</p>
+
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-number">{total_scans}</div>
+                <p>Scans Run</p>
+            </div>
+            <div class="stat">
+                <div class="stat-number">{avg_score}/100</div>
+                <p>Avg Score</p>
+            </div>
+            <div class="stat">
+                <div class="stat-number">{total_issues}</div>
+                <p>Issues Found</p>
+            </div>
+        </div>
+
+        <p>Keep up the good work! Regular scanning helps maintain accessibility compliance.</p>
+        <a href="{settings.frontend_url}/dashboard" class="button">View Dashboard</a>
+    </div>
+</body>
+</html>
+"""
+        return await self.send_email(to_email, subject, html_content)
+
+    async def send_subscription_confirmation(
+        self,
+        to_email: str,
+        user_name: Optional[str] = None,
+        tier: str = "free",
+    ) -> Dict[str, any]:
+        """Send subscription confirmation email."""
+        tier_names = {
+            "free": "Free",
+            "starter": "Starter",
+            "pro": "Pro",
+            "agency": "Agency",
+        }
+        plan_name = tier_names.get(tier, tier.title())
+        subject = f"Subscription Confirmed: {plan_name} Plan"
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height:1.6; color:#333; }}
+        .container {{ max-width:600px; margin:0 auto; padding:20px; }}
+        .header {{ background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:white; padding:30px; border-radius:10px; text-align:center; }}
+        .details {{ background:#f9f9f9; padding:30px; border-radius:0 0 10px 10px; }}
+        .button {{ display:inline-block; padding:12px 24px; background:#10b981; color:white; text-decoration:none; border-radius:5px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Subscription Confirmed!</h1>
+        </div>
+        <div class="details">
+            <p>Hi {user_name or 'there'},</p>
+            <p>Your subscription has been successfully updated to the <strong>{plan_name}</strong> plan.</p>
+            <p>What's next?</p>
+            <ul>
+                <li>Run unlimited accessibility scans</li>
+                <li>Access AI-powered fix suggestions</li>
+                <li>Get priority support</li>
+            </ul>
+            <a href="{settings.frontend_url}/dashboard" class="button">Go to Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return await self.send_email(to_email, subject, html_content)
 
 
 # Singleton instance

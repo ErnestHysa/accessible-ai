@@ -10,7 +10,8 @@ from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 from app.config import get_settings
-from app.api.v1 import auth, websites, scans, subscriptions
+from app.api.v1 import auth, websites, scans, subscriptions, health
+from app.error_handlers import register_error_handlers
 
 settings = get_settings()
 
@@ -63,10 +64,10 @@ app.add_middleware(
 )
 
 
-# Health check
+# Health check (basic)
 @app.get("/health")
 async def health_check() -> dict:
-    """Health check endpoint."""
+    """Basic health check endpoint."""
     return {"status": "healthy", "version": settings.app_version}
 
 
@@ -87,6 +88,10 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(websites.router, prefix="/api/v1/websites", tags=["Websites"])
 app.include_router(scans.router, prefix="/api/v1/scans", tags=["Scans"])
 app.include_router(subscriptions.router, prefix="/api/v1", tags=["Subscriptions"])
+app.include_router(health.router, tags=["Health"])
+
+# Register error handlers
+register_error_handlers(app)
 
 
 # Exception handlers
