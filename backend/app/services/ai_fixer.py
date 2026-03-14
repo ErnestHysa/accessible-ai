@@ -3,9 +3,11 @@
 from typing import Optional
 from app.config import get_settings
 from app.models.scan import Issue
+from app.logging_config import get_logger
 import httpx
 
 settings = get_settings()
+logger = get_logger(__name__)
 
 
 # WCAG rule templates for common issues
@@ -258,8 +260,9 @@ Provide:
                 return data["choices"][0]["message"]["content"]
 
     except Exception as e:
+        # Log error and fallback to generic fix
+        logger.error(f"AI fix generation failed: {e}, using generic fix")
         # Fallback to generic fix on error
-        pass
 
     return generate_generic_fix(issue)
 
