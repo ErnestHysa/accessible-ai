@@ -170,13 +170,13 @@ Key endpoints:
 
 - [x] Market research
 - [x] Design document
-- [ ] MVP (Backend + Frontend)
-- [ ] WordPress plugin
+- [x] MVP (Backend + Frontend)
+- [x] WordPress plugin
 - [ ] Shopify integration
-- [ ] AI fix improvements
-- [ ] Team collaboration
-- [ ] Public API
+- [ ] Team collaboration features
+- [ ] Public API access
 - [ ] Mobile apps
+- [ ] Advanced AI features (image alt text, PDF remediation)
 
 ## Contributing
 

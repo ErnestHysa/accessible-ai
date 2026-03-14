@@ -1,0 +1,109 @@
+# AccessibleAI - Production Docker Compose
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: accessibleai-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-accessibleai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-accessibleai}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-accessibleai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: accessibleai-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: accessibleai-backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-accessibleai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-accessibleai}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      SENTRY_DSN: ${SENTRY_DSN}
+      BASE_URL: ${BASE_URL:-https://api.accessibleai.com}
+      FRONTEND_URL: ${FRONTEND_URL:-https://accessibleai.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: accessibleai-celery
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-accessibleai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-accessibleai}
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PLAYWRIGHT_BROWSER_PATH: /usr/bin/chromium
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.core.celery worker --loglevel=info
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: accessibleai-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${BASE_URL:-https://api.accessibleai.com}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN}
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: accessibleai-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
