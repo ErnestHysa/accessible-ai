@@ -41,6 +41,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: dev_secret_key_change_in_production
       FRONTEND_URL: http://localhost:3000
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://127.0.0.1:3000","http://host.docker.internal:3000"]'
     ports:
       - "8000:8000"
     volumes:
@@ -50,7 +51,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "
+        echo 'Waiting for database...' &&
+        sleep 5 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
 
   frontend:
     build:
@@ -67,6 +76,7 @@ services:
       - /app/.next
     depends_on:
       - backend
+    command: npm run dev
 
   celery_worker:
     build:
@@ -80,9 +90,11 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - postgres
-      - redis
-    command: celery -A app.core.celery worker --loglevel=info
+      - postgres:
+        condition: service_healthy
+      - redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app worker --loglevel=info
 
 volumes:
   postgres_data:
